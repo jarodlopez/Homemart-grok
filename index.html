@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gadget Ecommerce</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #f8f8f8; margin: 0; padding: 0; color: #333; }
+        .app { max-width: 400px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        header { display: flex; justify-content: space-between; padding: 15px 20px; background: #fff; border-bottom: 1px solid #eee; }
+        header a { text-decoration: none; color: #007bff; font-weight: bold; }
+        #home, #product-detail, #checkout { padding: 20px; display: none; }
+        #home { display: block; } /* Default view */
+        h2 { font-size: 1.2em; text-align: center; margin-bottom: 10px; }
+        .search { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+        .brands { display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap; }
+        .brand-btn { padding: 8px 15px; background: #f0f0f0; border: none; border-radius: 20px; cursor: pointer; transition: background 0.3s; margin: 5px; }
+        .brand-btn:hover { background: #ffd700; color: #000; }
+        .product-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .product-card { background: #fff; border-radius: 15px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; }
+        .product-img { width: 100%; height: 120px; object-fit: cover; border-radius: 10px; background: #eee; } /* Placeholder style */
+        .view-btn { background: #ffd700; color: #000; padding: 10px; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; transition: transform 0.2s; }
+        .view-btn:hover { transform: scale(1.05); }
+        .back-btn { background: none; border: none; font-size: 1.5em; cursor: pointer; position: absolute; top: 10px; left: 10px; }
+        .large-img { width: 100%; height: 250px; object-fit: cover; border-radius: 15px; margin-bottom: 15px; }
+        .add-btn { background: linear-gradient(#000, #333); color: #fff; padding: 15px; border: none; border-radius: 15px; width: 100%; font-size: 1em; cursor: pointer; margin-top: 20px; }
+        .select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 15px; background: #fff; }
+        .input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px; background: #fff; }
+        .pay-btn { background: #ffd700; color: #000; padding: 15px; border: none; border-radius: 15px; width: 100%; font-size: 1.2em; cursor: pointer; font-weight: bold; }
+        .cart-count { color: #007bff; }
+        ul { list-style-type: disc; padding-left: 20px; }
+        #product-detail { position: relative; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <a href="#home" onclick="navigate('home')">Home</a>
+            <a href="#checkout" onclick="navigate('checkout')">Cart (<span id="cart-count">0</span>)</a>
+        </header>
+        <div id="home">
+            <h2>Let's Find Your Gadget!</h2>
+            <input type="text" id="search" class="search" placeholder="Search" oninput="handleSearch()">
+            <div class="brands" id="brands-container">
+                <h3 style="margin: 0 10px 0 0;">Choose Brand</h3>
+                <!-- Brands will be dynamically added -->
+            </div>
+            <div class="product-list" id="product-list"></div>
+        </div>
+        <div id="product-detail">
+            <button class="back-btn" onclick="navigate('home')">&lt;</button>
+            <img id="detail-img" class="large-img" src="" alt="">
+            <h2 id="detail-name"></h2>
+            <p id="detail-desc"></p>
+            <ul id="detail-features"></ul>
+            <p id="detail-rating"></p>
+            <p id="detail-price"></p>
+            <button class="add-btn" onclick="addToCart(currentProduct)">Add to Cart</button>
+        </div>
+        <div id="checkout">
+            <h2>Checkout</h2>
+            <h3>Payment</h3>
+            <select id="payment-method" class="select">
+                <option value="Credit Card">Credit Card</option>
+                <option value="PayPal">PayPal</option>
+                <option value="Apple Pay">Apple Pay</option>
+            </select>
+            <div id="card-details">
+                <input id="card-number" class="input" placeholder="Card Number">
+                <input id="card-name" class="input" placeholder="Name">
+                <input id="card-expiry" class="input" placeholder="Expiry">
+                <input id="card-cvv" class="input" placeholder="CVV">
+            </div>
+            <h3>Shipping Information</h3>
+            <input id="ship-address" class="input" placeholder="Address" value="93738 Tad Villages">
+            <input id="ship-apt" class="input" placeholder="Apt/Suite" value="Apt. 419 Lake Fay, MA">
+            <input id="ship-zip" class="input" placeholder="ZIP" value="05990">
+            <h3>Items</h3>
+            <div id="cart-items"></div>
+            <h3 id="total">Total: $0.00</h3>
+            <button class="pay-btn" onclick="handlePay()">Pay</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBLDeSeHBL2xicEyPHFskFWbtzuYxkA_Hg",
+            authDomain: "homemartenic.firebaseapp.com",
+            projectId: "homemartenic",
+            storageBucket: "homemartenic.firebasestorage.app",
+            messagingSenderId: "491359906424",
+            appId: "1:491359906424:web:77993044b19392e6731b8d",
+            measurementId: "G-N758YB17P9"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let products = [];
+        let filteredProducts = [];
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        let currentProduct = null;
+        let brands = new Set();
+
+        async function loadProducts() {
+            try {
+                const querySnapshot = await db.collection('products').get();
+                products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                filteredProducts = products;
+                products.forEach(p => { if (p.brand) brands.add(p.brand); });
+                renderBrands();
+                renderProducts();
+                updateCartCount();
+            } catch (error) {
+                console.error('Error loading products:', error);
+                alert('Failed to load products. Check Firestore rules and connection.');
+            }
+        }
+
+        function renderBrands() {
+            const container = document.getElementById('brands-container');
+            brands.forEach(brand => {
+                const btn = document.createElement('button');
+                btn.className = 'brand-btn';
+                btn.textContent = brand;
+                btn.onclick = () => filterByBrand(brand);
+                container.appendChild(btn);
+            });
+            const allBtn = document.createElement('button');
+            allBtn.className = 'brand-btn';
+            allBtn.textContent = 'All';
+            allBtn.onclick = () => filterByBrand('');
+            container.appendChild(allBtn);
+        }
+
+        function renderProducts() {
+            const list = document.getElementById('product-list');
+            list.innerHTML = '';
+            filteredProducts.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <img src="\( {p.image || 'https://via.placeholder.com/300x300?text=' + p.name}" alt=" \){p.name}" class="product-img">
+                    <h4>${p.name}</h4>
+                    <p>\[ {p.price.toFixed(2)}</p>
+                    <button class="view-btn" onclick="showDetail('${p.id}')">View</button>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function showDetail(id) {
+            currentProduct = products.find(p => p.id === id);
+            if (!currentProduct) return;
+            document.getElementById('detail-img').src = currentProduct.image || 'https://via.placeholder.com/300x300?text=' + currentProduct.name;
+            document.getElementById('detail-name').textContent = currentProduct.name;
+            document.getElementById('detail-desc').textContent = currentProduct.description || '';
+            const features = document.getElementById('detail-features');
+            features.innerHTML = (currentProduct.features || []).map(f => `<li>${f}</li>`).join('');
+            document.getElementById('detail-rating').textContent = currentProduct.rating ? `Rating: ${currentProduct.rating} / 5` : '';
+            document.getElementById('detail-price').textContent = ` \]{currentProduct.price.toFixed(2)}`;
+            navigate('product-detail');
+        }
+
+        function addToCart(product) {
+            cart.push(product);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            alert('Added to cart!');
+        }
+
+        function renderCart() {
+            const items = document.getElementById('cart-items');
+            items.innerHTML = cart.map(item => `<div>${item.name} - \[ {item.price.toFixed(2)}</div>`).join('');
+            const total = cart.reduce((sum, item) => sum + item.price, 0).toFixed(2);
+            document.getElementById('total').textContent = `Total: \]{total}`;
+        }
+
+        async function handlePay() {
+            if (cart.length === 0) return alert('Cart is empty');
+            const paymentMethod = document.getElementById('payment-method').value;
+            const shipping = {
+                address: document.getElementById('ship-address').value,
+                apt: document.getElementById('ship-apt').value,
+                zip: document.getElementById('ship-zip').value
+            };
+            if (!shipping.address || !shipping.zip) return alert('Complete shipping info');
+
+            const orderId = Date.now(); // Unique ID
+            const total = cart.reduce((sum, item) => sum + item.price, 0).toFixed(2);
+            const order = {
+                orderId,
+                items: cart.map(item => ({ id: item.id, name: item.name, price: item.price })),
+                total,
+                paymentMethod,
+                shipping,
+                date: new Date().toISOString()
+            };
+
+            try {
+                await db.collection('orders').add(order);
+                alert(`Order #${orderId} created successfully!`);
+
+                const message = `New order #${orderId}. Total: $${total}. Items: ${cart.map(item => item.name).join(', ')}. Shipping: ${shipping.address}, ${shipping.apt}, ${shipping.zip}`;
+                window.open(`https://wa.me/50584016969?text=${encodeURIComponent(message)}`, '_blank');
+
+                cart = [];
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateCartCount();
+                navigate('home');
+            } catch (error) {
+                alert('Error creating order: ' + error.message);
+            }
+        }
+
+        function updateCartCount() {
+            document.getElementById('cart-count').textContent = cart.length;
+        }
+
+        function handleSearch() {
+            const term = document.getElementById('search').value.toLowerCase();
+            filteredProducts = products.filter(p => p.name.toLowerCase().includes(term));
+            renderProducts();
+        }
+
+        function filterByBrand(brand) {
+            filteredProducts = brand ? products.filter(p => p.brand === brand) : products;
+            renderProducts();
+        }
+
+        function navigate(page) {
+            document.getElementById('home').style.display = 'none';
+            document.getElementById('product-detail').style.display = 'none';
+            document.getElementById('checkout').style.display = 'none';
+            if (page === 'checkout') renderCart();
+            document.getElementById(page).style.display = 'block';
+        }
+
+        // Toggle card details based on payment method
+        document.getElementById('payment-method').addEventListener('change', (e) => {
+            document.getElementById('card-details').style.display = e.target.value === 'Credit Card' ? 'block' : 'none';
+        });
+
+        // Initial load
+        loadProducts();
+        updateCartCount();
+        document.getElementById('card-details').style.display = 'block'; // Default to Credit Card
+    </script>
+</body>
+</html>
